@@ -1,0 +1,98 @@
+#!/bin/sh
+
+# PROVIDE: weewx
+# REQUIRE: DAEMON NETWORKING
+# KEYWORD: shutdown
+
+# weewx_enable: Enable the weewx service
+#       Required: Yes
+#       Default: "NO"
+#
+# weewx_path: Path to the weewx binary
+#       Required: Yes
+#       Default: "/home/weewx/bin"
+#       Needs to provide the directory in which the weewx binary is located.
+#	Don't include the binary name itself, which must be weewxd.
+#
+# weewx_user: The user that will run weewx
+#       Required: No
+#       Default: "weewx"
+#
+# weewx_group: The group that will run weewx
+#       Required: No
+#       Default: "weewx"
+#
+# weewx_log_file: Where weewx will store logs
+#       Required: Yes
+#       Default: "/var/log/weewx.log"
+#
+# weewx_config_file: Path to weewx config file, including the file name.
+#       Required: Yes
+#       Default: "/home/weewx/weewx.conf"
+#
+# weewx_run_options: Other flags to pass to weewx
+#       Required: No
+#       Default: ""
+#       Any flags that can be passed to `weewx` go here.
+#
+
+. /etc/rc.subr
+
+name="weewx"
+rcvar=weewx_enable
+
+load_rc_config $name
+: ${weewx_enable:="NO"}
+: ${weewx_path:="/home/weewx/bin"}
+: ${weewx_user:="weewx"}
+: ${weewx_group:="weewx"}
+: ${weewx_log_file="/var/log/weewx.log"}
+: ${weewx_config_file="/home/weewx/weewx.conf"}
+: ${weewx_run_options=""}
+
+pid_directory=/var/run/${name}
+
+pidfile="${pid_directory}/${name}_child.pid"
+
+ppidfile="${pid_directory}/${name}_daemon.pid"
+
+weewx_command="${weewx_path}/weewxd"
+weewx_args="--config ${weewx_config_file}"
+
+command="/usr/sbin/daemon"
+
+command_args="-t weewx -p ${pidfile} -P ${ppidfile} -o ${weewx_log_file} -f -r ${weewx_command} ${weewx_args} ${rc_flags}"
+
+start_precmd="${name}_prestart"
+
+weewx_prestart()
+{
+        # Check if PID directory exists
+        if [ ! -d ${pid_directory} ]; then
+               install -d -o ${weewx_user} ${pid_directory}
+        fi
+
+        # Check that the log file exists and set permissions properly
+        if [ ! -f ${weewx_log_file} ]; then
+		touch ${weewx_log_file}
+        fi
+	chown ${weewx_user}:${weewx_group} ${weewx_log_file}
+	chmod 640 ${weewx_log_file}
+
+	# Check to find weewx executable
+        if [ ! -x ${weewx_command} ]; then
+               echo "weewx not executable at ${weewx_command}" && exit 1
+        fi
+}
+
+stop_cmd="${name}_stop"
+weewx_stop()
+{
+        echo "Stopping PID: $(cat ${ppidfile})"
+        /bin/kill -9 $(cat ${ppidfile})
+        echo "Stopping PID: $(cat ${pidfile})"
+        /bin/kill -15 $(cat ${pidfile})
+}
+
+run_rc_command "$1"
+
