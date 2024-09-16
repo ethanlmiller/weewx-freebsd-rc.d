@@ -15,11 +15,11 @@
 #	Don't include the binary name itself, which must be weewxd.
 #
 # weewx_user: The user that will run weewx
-#       Required: No
+#       Required: Yes
 #       Default: "weewx"
 #
 # weewx_group: The group that will run weewx
-#       Required: No
+#       Required: Yes
 #       Default: "weewx"
 #
 # weewx_log_file: Where weewx will store logs
@@ -46,9 +46,9 @@ load_rc_config $name
 : ${weewx_path:="/home/weewx/bin"}
 : ${weewx_user:="weewx"}
 : ${weewx_group:="weewx"}
-: ${weewx_log_file="/var/log/weewx.log"}
-: ${weewx_config_file="/home/weewx/weewx.conf"}
-: ${weewx_run_options=""}
+: ${weewx_log_file:="/var/log/weewx.log"}
+: ${weewx_config_file:="/home/weewx/weewx.conf"}
+: ${weewx_run_options:=""}
 
 pid_directory=/var/run/${name}
 
