@@ -8,12 +8,6 @@
 #       Required: Yes
 #       Default: "NO"
 #
-# weewx_path: Path to the weewx binary
-#       Required: Yes
-#       Default: "/home/weewx/bin"
-#       Needs to provide the directory in which the weewx binary is located.
-#	Don't include the binary name itself, which must be weewxd.
-#
 # weewx_user: The user that will run weewx
 #       Required: Yes
 #       Default: "weewx"
@@ -22,13 +16,17 @@
 #       Required: Yes
 #       Default: "weewx"
 #
+# weewx_venv: Weewx virtual environment
+#       Required: Yes
+#       Default: "/home/weewx"
+#
 # weewx_log_file: Where weewx will store logs
 #       Required: Yes
 #       Default: "/var/log/weewx.log"
 #
 # weewx_config_file: Path to weewx config file, including the file name.
 #       Required: Yes
-#       Default: "/home/weewx/weewx.conf"
+#       Default: "/home/weewx/weewx-data/weewx.conf"
 #
 # weewx_run_options: Other flags to pass to weewx
 #       Required: No
@@ -43,45 +41,51 @@ rcvar=weewx_enable
 
 load_rc_config $name
 : ${weewx_enable:="NO"}
-: ${weewx_path:="/home/weewx/bin"}
 : ${weewx_user:="weewx"}
 : ${weewx_group:="weewx"}
+: ${weewx_venv:="/home/weewx"}
 : ${weewx_log_file:="/var/log/weewx.log"}
-: ${weewx_config_file:="/home/weewx/weewx.conf"}
+: ${weewx_config_file:="/home/weewx/weewx-data/weewx.conf"}
 : ${weewx_run_options:=""}
 
 pid_directory=/var/run/${name}
-
 pidfile="${pid_directory}/${name}_child.pid"
-
 ppidfile="${pid_directory}/${name}_daemon.pid"
 
-weewx_command="${weewx_path}/weewxd"
-weewx_args="--config ${weewx_config_file}"
-
-command="/usr/sbin/daemon"
-
-command_args="-t weewx -p ${pidfile} -P ${ppidfile} -o ${weewx_log_file} -f -r ${weewx_command} ${weewx_args} ${rc_flags}"
+weewx_args="--config ${weewx_config_file} --pidfile /dev/null"
+weewx_cmd=${weewx_venv}/bin/weewxd
+weewx_full_cmd="${weewx_cmd} ${weewx_args}"
+weewx_chdir=`echo ~${weewx_user}`
+weewx_env="VIRTUAL_ENV=${weewx_venv}"
 
 start_precmd="${name}_prestart"
+
+# We can't run daemon as weewx_user, so unset it.
+# If we left it set, daemon would automatically run as weewx_user, and that won't work.
+# However, we're going to want to have daemon run the subprocess as the user, so set a different variable that we can use.
+weewx_username=${weewx_user}
+unset weewx_user
+
+command="/usr/sbin/daemon"
+command_args="-u ${weewx_username} -t weewx -p ${pidfile} -P ${ppidfile} -o ${weewx_log_file} -H -f -r ${weewx_full_cmd} ${weewx_args} ${rc_flags}"
 
 weewx_prestart()
 {
         # Check if PID directory exists
         if [ ! -d ${pid_directory} ]; then
-               install -d -o ${weewx_user} ${pid_directory}
+               install -d -o ${weewx_username} ${pid_directory}
         fi
 
         # Check that the log file exists and set permissions properly
         if [ ! -f ${weewx_log_file} ]; then
-		touch ${weewx_log_file}
+            touch ${weewx_log_file}
         fi
-	chown ${weewx_user}:${weewx_group} ${weewx_log_file}
-	chmod 640 ${weewx_log_file}
+        chown ${weewx_username}:${weewx_group} ${weewx_log_file}
+        chmod 640 ${weewx_log_file}
 
-	# Check to find weewx executable
-        if [ ! -x ${weewx_command} ]; then
-               echo "weewx not executable at ${weewx_command}" && exit 1
+        # Check to find weewx executable
+        if [ ! -x ${weewx_cmd} ]; then
+		echo "weewx not executable at ${weewx_cmd}" && exit 1
         fi
 }
 
